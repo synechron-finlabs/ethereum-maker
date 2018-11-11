@@ -1,30 +1,15 @@
 #!/bin/bash
 
-source qm.variables
+source em.variables
 source lib/common.sh
 
 DOCKER_NETWORK_IP=10.50.0.
-
-#create node configuration file
-function generateNodeConf(){
-    PATTERN="s/#mNode#/node$1/g"
-    sed $PATTERN lib/dev/template.conf > $projectName/node$1/node/node$1.conf
-
-    PATTERN="s/#CURRENT_IP#/${DOCKER_NETWORK_IP}$(($1+1))/g"
-    sed -i $PATTERN $projectName/node$1/node/node$1.conf
-
-    if [ $i -gt 1 ]; then
-        echo othernodes = ["\"http://${DOCKER_NETWORK_IP}2:22002/\""] >> $projectName/node$1/node/node$1.conf
-    fi
-}
 
 function generateSetupConf(){
     echo 'NODENAME='node$1 > $projectName/node$1/setup.conf
     echo 'CURRENT_IP='${DOCKER_NETWORK_IP}$(($1+1)) >> $projectName/node$1/setup.conf
     echo 'THIS_NODEMANAGER_PORT=22004' >> $projectName/node$1/setup.conf
-    echo 'RPC_PORT=22000' >> $projectName/node$1/setup.conf    
-    echo 'RAFT_ID='$1 >> $projectName/node$1/setup.conf
-    echo 'PUBKEY='$(cat $projectName/node$1/node/keys/node$1.pub)>> $projectName/node$1/setup.conf
+    echo 'RPC_PORT=22000' >> $projectName/node$1/setup.conf        
     echo 'ROLE=' >> $projectName/node$1/setup.conf
     echo 'CONTRACT_ADD=' >> $projectName/node$1/setup.conf
     echo 'REGISTERED=' >> $projectName/node$1/setup.conf
@@ -32,20 +17,11 @@ function generateSetupConf(){
     echo 'STATE=I' >> $projectName/node$1/setup.conf
 }
 
-#function to generate keyPair for node
-function generateKeyPair(){
-    echo -ne "\n" | constellation-node --generatekeys=node$1 1>>/dev/null
-    echo -ne "\n" | constellation-node --generatekeys=node$1a 1>>/dev/null
-
-    mv node$1*.*  $projectName/node$1/node/keys/.
-
-}
-
 #function to create start node script with --raft flag
 function copyStartTemplate(){
     
     PATTERN="s|#network_Id_value#|${NET_ID}|g"
-    cp lib/dev/start_quorum_template.sh $projectName/node$1/node/start_node$1.sh
+    cp lib/dev/start_ethereum_template.sh $projectName/node$1/node/start_node$1.sh
     sed -i $PATTERN $projectName/node$1/node/start_node$1.sh
     PATTERN="s/#mNode#/node$1/g"
     sed -i $PATTERN $projectName/node$1/node/start_node$1.sh
@@ -80,7 +56,7 @@ function generateEnode(){
         if [ $i -eq $nodeCount ]; then
             COMMA=""
         fi
-        echo \"enode://$enode@${DOCKER_NETWORK_IP}$(($1+1)):22001?discport=0\&raftport=22003\"$COMMA >> $projectName/static-nodes.json
+        echo \"enode://$enode@${DOCKER_NETWORK_IP}$(($1+1)):22001\"$COMMA >> $projectName/static-nodes.json
         
     fi
     
@@ -101,8 +77,6 @@ function createAccount(){
     fi
 
     cp datadir/keystore/* $projectName/node$1/node/qdata/keystore/node$1key
-
-    
 
     COMMA=","
     if [ $i -eq $nodeCount ]; then
@@ -125,7 +99,7 @@ function addNodeToDC(){
     echo "      - ./node$1:/home" >> $projectName/docker-compose.yml
     echo "      - ./node1:/master" >> $projectName/docker-compose.yml
   
-    if [ -f .qm_export_ports ]; then
+    if [ -f .em_export_ports ]; then
         i=$1
 
         if [ $i -lt 10 ]; then 
@@ -136,8 +110,6 @@ function addNodeToDC(){
         echo "      - \"2${i}01:22001\"" >> $projectName/docker-compose.yml
         echo "      - \"2${i}02:22002\"" >> $projectName/docker-compose.yml
         echo "      - \"2${i}03:22003\"" >> $projectName/docker-compose.yml
-        echo "      - \"2${i}04:22004\"" >> $projectName/docker-compose.yml
-        echo "      - \"2${i}05:22005\"" >> $projectName/docker-compose.yml
         
     fi
 
@@ -152,13 +124,11 @@ function createNodeDirs(){
     i=1
     while : ; do
         mkdir -p $projectName/node$i/node/keys
-        mkdir -p $projectName/node$i/node/qdata/{keystore,geth,gethLogs,constellationLogs}
+        mkdir -p $projectName/node$i/node/qdata/{keystore,geth,gethLogs}
         
-        generateKeyPair $i
         copyStartTemplate $i
         generateEnode $i
-        createAccount $i    
-        generateNodeConf $i
+        createAccount $i
         generateSetupConf $i
         addNodeToDC $i
 

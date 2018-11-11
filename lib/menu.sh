@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #Menu system for launching appropriate scripts based on user choice
-source qm.variables
+source em.variables
 source lib/common.sh
 
 function readParameters() {
