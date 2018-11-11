@@ -31,7 +31,7 @@ function main(){
         waitForMaster
     fi
 
-    cd /root/quorum-maker/
+    cd /root/ethereum-maker/
     ./start_nodemanager.sh 22000 22003
 }
 main
